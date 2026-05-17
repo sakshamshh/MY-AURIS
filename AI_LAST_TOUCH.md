@@ -1,5 +1,6 @@
 # AURIS — HANDOVER & LATEST MASTER CHANGES DOCUMENT
-**Last Updated:** May 17, 2026
+**Last Updated:** May 17, 2026 (22:50 IST)
+**Current Status:** Production-Ready Edge-Cloud Pipeline Active. System Integration fully converged. Concurrent parallel priority queue worker deployed.
 
 This document compiles all recent structural changes, feature additions, architecture updates, deployment actions, and custom tools to ensure a seamless continuation later.
 
@@ -15,36 +16,33 @@ The routing and deployment endpoints have been successfully segregated and pushe
 
 ---
 
-## 2. Key Code Changes & Additions
+## 2. Key Code Changes & Additions (Completed Today)
 
-### A. Dynamic API Endpoint Detection
-*   **File Modified:** [App.jsx](file:///C:/Users/SAKSHAM/OneDrive/Documents/AURIS/dashboard/auris-hq/src/App.jsx) (and synced to local `auris-app` workspace).
-*   *Change:* Updated the `API` base URL constant to dynamically sense its environment:
-    ```javascript
-    const API = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-      ? 'http://localhost:8000'
-      : 'https://auris.skymlabs.com';
-    ```
-    This completely eliminates the need to edit manual URL configurations when switching between local debugging and production deployment.
+### A. Core Backend Routing Convergence (Integration Alignment)
+*   **Files Modified:** [main.py](file:///C:/Users/SAKSHAM/OneDrive/Documents/AURIS/server/main.py), [admin.py](file:///C:/Users/SAKSHAM/OneDrive/Documents/AURIS/server/routes/admin.py)
+*   **The Issue:** Frontends made API calls to `/admin/stores` (without `/api` prefix), while the uvicorn backend registered them as `/api/admin/stores`.
+*   **Resolution:**
+    1. Removed the `/api` prefix from route decorators inside [admin.py](file:///C:/Users/SAKSHAM/OneDrive/Documents/AURIS/server/routes/admin.py).
+    2. Mounted the `admin.router` twice inside [main.py](file:///C:/Users/SAKSHAM/OneDrive/Documents/AURIS/server/main.py): once under the root path `/` and once under `/api` prefix.
+    3. Seamlessly supports both routing variants on local dev and production behind Nginx without changing frontends or proxy rules.
 
-### B. Interactive PDF Map Digitizer Tool
-*   **File Added:** [digitize_map.py](file:///C:/Users/SAKSHAM/OneDrive/Documents/AURIS/dashboard/digitize_map.py) (and synced to local `auris-app` workspace).
-*   *Purpose:* A standalone click-based OpenCV utility that allows taking a screenshot of *any* floor plan blueprint PDF and converting it into calibrated metric metric-coordinate JSON.
-*   *Key Features:*
-    1.  **Metric Calibration:** Calculates `pixels_per_meter` by letting you click 2 points of a known distance.
-    2.  **Point Tracing:** Interactive clicking for Boundaries (outer polygon), Wall Segments (line-pairs), Openings/Doors (blue line-pairs), and Obstacles (red filled polygons).
-    3.  **JSON Export:** Outputs a schema-compliant `floor_plan.json` ready for direct paste and upload in the HQ Portal scan box.
+### B. High-Throughput 12-Camera Parallel Keyed Priority Queue
+*   **File Modified:** [frames.py](file:///C:/Users/SAKSHAM/OneDrive/Documents/AURIS/server/routes/frames.py)
+*   **The Issue:** Single-threaded sequential frames worker collapsed under high ingestion volume of 12-camera factories. Arbitrary parallel workers corrupted object tracking (DeepSort requires stream frames to be processed strictly chronologically).
+*   **Resolution:**
+    1. Initialized `NUM_WORKERS = 12` parallel worker tasks in the background for multi-camera processing.
+    2. Implemented Key-based Locking & Parking: A worker locks the stream `store_id + camera_id` while processing, and parks incoming frames for the same stream in a stream-specific FIFO queue (`pending_by_key`) to preserve chronological sequencing.
+    3. Expanded backpressure smart-dropping thresholds to evaluate global + parked queue depths (`get_total_queued_frames()`).
 
-### C. Automatic Build & Deploy Pipelines
-*   **File Added:** [build_and_deploy_hq.ps1](file:///C:/Users/SAKSHAM/OneDrive/Documents/AURIS/dashboard/build_and_deploy_hq.ps1)
-    *   Builds the Vite static assets for `auris-hq` and deploys to `/var/www/auris-hq` on the Azure VM.
-*   **File Added:** [build_and_deploy_customer.ps1](file:///C:/Users/SAKSHAM/OneDrive/Documents/AURIS/dashboard/build_and_deploy_customer.ps1)
-    *   Compiles the React Native/Expo Web bundles and deploys to `/var/www/auris` on the Azure VM.
+### C. Security Hardening & Secret Protection
+*   **File Modified:** [auris-hq.service](file:///C:/Users/SAKSHAM/OneDrive/Documents/AURIS/dashboard/auris-hq.service)
+*   **Action:** Masked the hardcoded GEMINI_API_KEY with a safe placeholder to clear GitHub Push Protection blockages. Soft-reset git history by 1 commit locally to clear cached history.
 
-### D. Repository Synchronization & Push Protections
-*   **File Modified:** [SYSTEM_DESIGN.md](file:///C:/Users/SAKSHAM/OneDrive/Documents/AURIS/SYSTEM_DESIGN.md)
-    *   Masked the raw Groq API key in the configuration metadata, eliminating the GitHub secret leakage blocking rule.
-*   *Status:* **Successfully synchronized & force-pushed** to the master monorepo `MY-AURIS` as well as subfolders `auris-server` and `DOWNLOAD-AURIS-`. All histories are 100% clean and fully up-to-date.
+### D. Automated Multi-Repo Push Synchronization
+*   **Status:** **Fully Synced & Confirmed**. Running [deploy_all.ps1](file:///C:/Users/SAKSHAM/OneDrive/Documents/AURIS/deploy_all.ps1) successfully pushed all modifications to:
+    *   `auris-server` GitHub Repo (Server files)
+    *   `DOWNLOAD-AURIS-` GitHub Repo (Edge files)
+    *   `MY-AURIS` GitHub Repo (Master monorepo)
 
 ---
 
@@ -60,27 +58,16 @@ powershell -ExecutionPolicy Bypass -File .\build_and_deploy_hq.ps1
 powershell -ExecutionPolicy Bypass -File .\build_and_deploy_customer.ps1
 ```
 
----
-
-## 4. How to Digitize a Map Blueprint
-
-1. Take a screenshot of the floor plan PDF/image and place it in the folder `C:\Users\SAKSHAM\auris-app\` as `map.png` or `map.jpg`.
-2. Run the digitizer:
-   ```powershell
-   cd c:\Users\SAKSHAM\auris-app
-   python .\digitize_map.py
-   ```
-3. Follow the visual prompts to:
-   - Click two points on the scale bar (or a wall of known size) and type the metric distance (e.g. `5.5`) in your terminal.
-   - Click sequential corners to draw the Outer Boundary (`ENTER` to close).
-   - Click point-pairs to draw Walls (`ENTER` to close).
-   - Click point-pairs to draw Openings/Doors (`ENTER` to close).
-   - Outline obstacles, pressing `c` to complete each obstacle, and `ENTER` to complete.
-4. Copy the resulting `floor_plan.json` and paste it into the **Guided Scan Upload** tab in [hq.skymlabs.com](https://hq.skymlabs.com).
+To sync code changes across all repositories, run:
+```powershell
+powershell -ExecutionPolicy Bypass -File "C:\Users\SAKSHAM\OneDrive\Documents\AURIS\deploy_all.ps1"
+```
 
 ---
 
-## 5. Next Steps for Development
-
-1. **GCP Homography Canvas Integration:** Let the users link 4 points on the snapshot to physical metres in the browser.
-2. **OSNet Re-ID Model:** Once a Google Cloud GPU is active, implement the Re-ID embedding tracker in the inference worker loop (`reid_worker.py`).
+## 4. Live Verification Summary
+Our automated browser agent successfully logged into the command hub:
+*   **HQ Command Portal:** Zero 502/404 errors. Completely stable.
+*   **Dynamic Fetch:** Live stores retrieved, parsed, and coordinate-mapped perfectly.
+*   **Queue Telemetry:** System initialized with 12 parallel threads active and listening.
+*   **Live Walkthrough:** Saved as [walkthrough.md](file:///C:/Users/SAKSHAM/.gemini/antigravity/brain/c538948e-f1ab-45c5-9737-e23844284c22/walkthrough.md) in the active conversation brain folder.

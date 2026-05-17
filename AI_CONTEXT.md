@@ -121,6 +121,8 @@ C:\Users\SAKSHAM\OneDrive\Documents\AURIS\
 |---|---|---|---|
 | **iPhone LiDAR floor plan ingest API** | Codex | ✅ DONE | `server/routes/mapping.py` |
 | **Dashboard mapping UI + live floor tab** | Codex | ✅ DONE | `dashboard/auris-hq/src/App.jsx` |
+| **Backend Route Alignment (CORS/Proxy Convergence)** | Antigravity | ✅ DONE | `server/main.py` |
+| **12-Camera Parallel Keyed Priority Queue Worker** | Antigravity | ✅ DONE | `server/routes/frames.py` |
 | Homography Calibration Canvas UI | Agent 3 | 🟡 NEXT | `dashboard/auris-hq/src/App.jsx` |
 | Real-world coord mapper in frames.py | Agent 2 | 🔴 NOT STARTED | `server/routes/frames.py` |
 | OSNet Re-ID integration | Agent 2 | 🔴 NOT STARTED | `server/services/reid_worker.py` |
